@@ -1,0 +1,16 @@
+[project]
+name = "lt-nodes"
+version = "0.1.0"
+description = "Custom ComfyUI nodes and workflow utilities from Latent Talent."
+requires-python = ">=3.10"
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/Latent-Talent/LT-Nodes"
+"Bug Tracker" = "https://github.com/Latent-Talent/LT-Nodes/issues"
+
+[tool.comfy]
+# Replace with your actual Publisher ID from https://registry.comfy.org.
+# It is NOT necessarily your GitHub username.
+PublisherId = "REPLACE_WITH_REGISTRY_PUBLISHER_ID"
+DisplayName = "LT-Nodes"
