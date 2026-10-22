@@ -1,0 +1,11 @@
+# Repository files that are not needed in installed node packs.
+.github/
+docs/
+scripts/
+tests/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.vscode/
+*.psd
