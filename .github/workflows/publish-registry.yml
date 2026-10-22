@@ -1,0 +1,83 @@
+name: Publish to Comfy Registry
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - pyproject.toml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: comfy-registry-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Validate and publish LT-Nodes
+    if: github.repository == 'Latent-Talent/LT-Nodes' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python for validation
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check whether the version changed
+        id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          python - <<'PY'
+          import os
+          import subprocess
+          import tomllib
+
+          with open("pyproject.toml", "rb") as handle:
+              current = tomllib.load(handle)["project"]["version"]
+
+          previous = None
+          if os.environ["EVENT_NAME"] == "push":
+              before = os.environ.get("BEFORE_SHA", "")
+              if before and before != "0" * 40:
+                  result = subprocess.run(
+                      ["git", "show", f"{before}:pyproject.toml"],
+                      capture_output=True, text=True, check=False,
+                  )
+                  if result.returncode == 0:
+                      previous = tomllib.loads(result.stdout)["project"]["version"]
+
+          publish = os.environ["EVENT_NAME"] == "workflow_dispatch" or current != previous
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write(f"publish={'true' if publish else 'false'}\n")
+          print(f"Current version: {current}; previous version: {previous}; publish: {publish}")
+          PY
+
+      - name: Validate Registry metadata and node package
+        if: steps.version.outputs.publish == 'true'
+        run: python scripts/validate_registry.py
+
+      - name: Verify Registry publishing token is configured
+        if: steps.version.outputs.publish == 'true'
+        env:
+          REGISTRY_ACCESS_TOKEN: ${{ secrets.REGISTRY_ACCESS_TOKEN }}
+        run: |
+          if [ -z "$REGISTRY_ACCESS_TOKEN" ]; then
+            echo "::error::Add REGISTRY_ACCESS_TOKEN in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: Publish Custom Node to the Comfy Registry
+        if: steps.version.outputs.publish == 'true'
+        uses: Comfy-Org/publish-node-action@v1
+        with:
+          personal_access_token: ${{ secrets.REGISTRY_ACCESS_TOKEN }}
